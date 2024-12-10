@@ -25,6 +25,8 @@ def run_broker():
                     router_socket.send_multipart([target, b'',sender,b'',message_parts[-2], b'HINT'])
                 elif message_parts[-1].decode() == 'ACK':
                     router_socket.send_multipart([target, b'',sender,message_parts[-2], b'ACK'])
+                elif message_parts[-1].decode() == 'MIGRATEDATA':
+                    router_socket.send_multipart([target, b'',sender,message_parts[-2], b'MIGRATEDATA'])
         except zmq.Again:
             pass
 

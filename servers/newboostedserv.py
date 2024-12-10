@@ -28,22 +28,26 @@ def run_server(port):
     print(f"InterServer Socket {port+1000} binded.")
     print(f"Hint Socket {port+2000} binded.")
 
-    replica_ports = [5559]
+    
 
-    def replicate_to_servers(response):
+    def replicate_to_servers(response,replica_ports):
         for replica_port in replica_ports:
             inter_server_socket.send_multipart(
                 [str(replica_port+1000).encode(), b'', response.encode(), b'REPLICA']
             )
             print(f"replica_sent to {replica_port}")
 
-    def handle_message(message_parts, socket):
-        if message_parts[-1] != b'HINT':
-            response = f"Response from server {port}"
-            print("sending response")
-            socket.send_multipart([message_parts[1], b'', response.encode()])
-            replicate_to_servers(response)
-        else:
+    def handle_message(message_parts, load_socket, server_socket ):
+        if message_parts[-1] == b'MIGRATEDATA':
+            key = message_parts[-3].decode()
+            print(f"need to migrate data {key}")
+            target = message_parts[-5].decode()
+            target = int(target) + 1000
+            target = str(target).encode()
+            server_socket.send_multipart([target, b'', key.encode(), b'MIGRATEDATA'])
+
+    
+        elif message_parts[-1] == b'HINT':
             hint_data = (message_parts[-5].decode() if isinstance(message_parts[-5], bytes) else message_parts[-5],
              message_parts[-3].decode() if isinstance(message_parts[-3], bytes) else message_parts[-3])
             hints_queue.append(hint_data)
@@ -51,13 +55,23 @@ def run_server(port):
             print(f"queue : {hints_queue}")
             response = f"Response from server {port}, responsible of the hint"
             print("sending response")
-            socket.send_multipart([message_parts[1], b'', response.encode()])
-            replicate_to_servers(response)
+            load_socket.send_multipart([message_parts[1], b'', response.encode()])
+        else:
+            #replicate_to_servers(response) may delete
+            response = f"Response from server {port}"
+            print("sending response")
+            load_socket.send_multipart([message_parts[1], b'', response.encode()])
+            replica_ports = message_parts[-3].decode().split(",")
+            print(f"replica_ports: {replica_ports}")
+            replica_ports = [int(x) for x in replica_ports]
+            replicate_to_servers(response,replica_ports)
 
     def handle_server_message(message_parts, socket):
         print("hello")
         if message_parts[-1] == b'REPLICA':
             print(f"Server {port} received replica")
+        elif message_parts[-1] == b'MIGRATEDATA':
+            print("hello")
         elif message_parts[-1] == b'HINT':
             print(message_parts)
             sender = message_parts[-4]
@@ -93,7 +107,7 @@ def run_server(port):
                 message_parts = lb_socket.recv_multipart(flags=zmq.NOBLOCK)
                 print(f"{port}received a client messag")
                 if message_parts:
-                    handle_message(message_parts, lb_socket)
+                    handle_message(message_parts, lb_socket, inter_server_socket)
             except zmq.Again:
                 pass
 

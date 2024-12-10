@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
         print("Servers running. Press Ctrl+C to stop.")
         while not stop_event.is_set():
-            time.sleep(1) 
+            time.sleep(0.1) 
     except KeyboardInterrupt:
         print("\nShutting down servers...")
         stop_event.set()
