@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shopping List</title>
+</head>
+<body>
+    <h1>Shopping List: {{ list_id }}</h1>
+    <h2>User: {{ user_id }}</h2>
+
+    <!-- Display the items in the shopping list -->
+    <div>
+        <h3>Items in List:</h3>
+        <ul id="item-list">
+            {% for item_id, item in items.items() %}
+                <li data-id="{{ item_id }}">
+                    {{ item.name }} - Quantity: {{ item.quantity }} - 
+                    {% if item.acquired %}Acquired{% else %}Not Acquired{% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Form for item actions -->
+    <form id="list-actions">
+        <input type="text" id="item-name" placeholder="Item Name">
+        <input type="number" id="item-quantity" placeholder="Quantity">
+        <button type="button" onclick="performAction('add')">Add Item</button>
+        <button type="button" onclick="performAction('remove')">Remove Item</button>
+        <button type="button" onclick="performAction('increase')">Increase Quantity</button>
+        <button type="button" onclick="performAction('decrease')">Decrease Quantity</button>
+        <button type="button" onclick="performAction('acquire')">Mark as Acquired</button>
+    </form>
+
+    <!-- Separate Synchronize button -->
+    <div>
+        <button type="button" onclick="performAction('synchronize')">Synchronize</button>
+    </div>
+
+    <script>
+        async function performAction(action) {
+            const name = document.getElementById("item-name").value;
+            const quantity = parseInt(document.getElementById("item-quantity").value, 10);
+            
+            const requestData = { action };
+            if (["add", "remove", "increase", "decrease", "acquire"].includes(action)) {
+                requestData.name = name;
+                if (action === "add") {
+                    requestData.quantity = quantity;
+                }
+            }
+
+            const response = await fetch(window.location.pathname, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestData),
+            });
+
+            if (response.ok) {
+                updateList(); // Dynamically update the list after any action
+            } else {
+                console.error("Failed to perform action:", action);
+            }
+        }
+
+        async function updateList() {
+            const response = await fetch(window.location.pathname, { method: "GET" });
+            const html = await response.text();
+
+            // Extract and replace the list content dynamically
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = html;
+            const newList = tempDiv.querySelector("#item-list");
+
+            const currentList = document.querySelector("#item-list");
+            currentList.innerHTML = newList.innerHTML;
+        }
+    </script>
+    <a href="/">Back to Home</a>
+</body>
+</html>

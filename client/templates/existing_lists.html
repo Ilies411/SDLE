@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Existing Lists</title>
+</head>
+<body>
+    <h1>Select an Existing Shopping List</h1>
+    <ul>
+        {% for list_id in lists %}
+            <li><a href="/list/{{ user_id }}/{{ list_id }}">{{ list_id }}</a></li>
+        {% endfor %}
+    </ul>
+    <a href="/">Back to Home</a>
+</body>
+</html>

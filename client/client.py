@@ -1,97 +1,92 @@
+from flask import Flask, request, redirect, url_for, render_template, jsonify
 import os
 import uuid
-from clientShoppingList import *
+from CRDTShoppingList import ShoppingList
 
-def create_or_load_list():
-    while True:
-        try:
-            user_id = int(input("Welcome! Enter a user ID: "))
-            fk = int(input("\n0. Work on an existing list\n1. Create a new list\n\nYour Selection: "))
-            if fk == 0:
-                list_id = input("Enter list ID: ")
-                break
-            elif fk == 1:
-                list_id = str(uuid.uuid4())
-                print("\nYour new list ID is:", list_id)
-                break
-            else:
-                print("Wrong Selection")
-        except ValueError:
-            print("Invalid input. Try again.")
-    return user_id, list_id
+app = Flask(__name__)
 
-def manage_local_list(user_id, list_id):
+shopping_lists = {}
+
+def load_existing_lists(user_id):
     folder_path = os.path.join("userdata", str(user_id))
-    file_path = os.path.join(folder_path, f"{list_id}.txt")
-    os.makedirs(folder_path, exist_ok=True)
+    if not os.path.exists(folder_path):
+        return []
 
-    if not os.path.exists(file_path):
-        with open(file_path, 'w') as file:
-            print(f"\nCreated Local List: {file_path}")
-            file.write("Removed IDs:")
-    else:
-        print(f"\nLocal List already exists: {file_path}")
-    return file_path
+    return [file.split('.')[0] for file in os.listdir(folder_path) if file.endswith(".txt")]
 
-def list_editor(shoppingList):
-    while True:
-        print("\nList Editor")
-        try:
-            key = int(input("1.Add Item\n2.Remove Item\n3.Increase Quantity\n4.Decrease Quantity\n5.Set as Acquired\n6.Synchronize\n 7.Show List\n8.Leave\nYour Selection: "))
-            match key:
-                case 1:
-                    name = input("Enter item name: ")
-                    quantity = int(input("Enter quantity: "))
-                    shoppingList.addItem(name, quantity)
-                case 2:
-                    name = input("Enter item name to remove: ")
-                    shoppingList.removeItem(name)
-                case 3:
-                    name = input("Enter item name to increase quantity: ")
-                    quantity = int(input("Enter quantity to increase: "))
-                    shoppingList.increase(name, quantity)
-                case 4:
-                    name = input("Enter item name to decrease quantity: ")
-                    quantity = int(input("Enter quantity to decrease: "))
-                    shoppingList.decrease(name, quantity)
-                case 5:
-                    name = input("Enter item name to set as acquired: ")
-                    shoppingList.acquire(name)
-                case 6:
-                    shoppingList.synchronize(1)
-                case 7:
-                    shoppingList.showList()
-                case 8:
-                    break
-                case _:
-                    print("Invalid selection. Try again.")
-        except ValueError:
-            print("Invalid input. Please try again.")
-        shoppingList.localSave()
+@app.route("/", methods=["GET", "POST"])
+def home():
+    if request.method == "POST":
+        user_id = request.form["user_id"]
+        action = request.form["action"]
 
-def main():
-    user_id, list_id = create_or_load_list()
-    file_path = manage_local_list(user_id, list_id)
-    shoppingList = ShoppingList(list_id, user_id)
-    shoppingList.fillFromFile(file_path)
+        if action == "new":
+            list_id = str(uuid.uuid4())
+            return redirect(url_for("shopping_list", user_id=user_id, list_id=list_id))
+        elif action == "existing":
+            return redirect(url_for("existing_lists", user_id=user_id))
 
-    if input("Synchronize before editing? (y/n): ").lower() == "y":
-        shoppingList.synchronize(1)
+    return render_template("home.html")
 
-    list_editor(shoppingList)
+@app.route("/existing/<user_id>", methods=["GET"])
+def existing_lists(user_id):
+    lists = load_existing_lists(user_id)
+    return render_template("existing_lists.html", user_id=user_id, lists=lists)
 
-    if input("Synchronize before leaving? (y/n): ").lower() == "y":
-        shoppingList.synchronize(1)
+@app.route("/list/<user_id>/<list_id>", methods=["GET", "POST"])
+def shopping_list(user_id, list_id):
+    shopping_list = shopping_lists.get((user_id, list_id))
+    if not shopping_list:
+        shopping_list = ShoppingList()
+        shopping_list.set_id(list_id)
+        shopping_list.set_replica_id(user_id)
+        file_path = os.path.join("userdata", str(user_id), f"{list_id}.txt")
+        if os.path.exists(file_path):
+            shopping_list.fillFromFile(file_path)
+        shopping_lists[(user_id, list_id)] = shopping_list
 
-    print("Goodbye!")
+    if request.method == "POST":
+        data = request.json
+        action = data.get("action")
+
+        if action == "add":
+            name = data["name"]
+            quantity = data["quantity"]
+            item_id = str(uuid.uuid4())
+            shopping_list.add_item(item_id, {"name": name, "quantity": quantity, "acquired": False, "timestamp": shopping_list.increment_counter()})
+        elif action == "remove":
+            name = data["name"]
+            shopping_list.remove_item(name)
+        elif action == "increase":
+            name = data["name"]
+            item_id = shopping_list.get_item_id_by_name(name)
+            if item_id:
+                shopping_list.increment_quantity(item_id)
+        elif action == "decrease":
+            name = data["name"]
+            item_id = shopping_list.get_item_id_by_name(name)
+            if item_id:
+                shopping_list.decrement_quantity(item_id)
+        elif action == "acquire":
+            name = data["name"]
+            item_id = shopping_list.get_item_id_by_name(name)
+            if item_id:
+                shopping_list.update_acquired_status(item_id, True)
+        elif action == "synchronize":
+            remote_list = ShoppingList()
+            remote_list.set_id(shopping_list.my_id())
+            remote_list.set_replica_id(int(user_id) + 1)
+            shopping_list.merge(remote_list)
+
+        shopping_list.localSave()
+        return jsonify({"status": "success"})
+
+    return render_template(
+        "shopping_list.html",
+        user_id=user_id,
+        list_id=list_id,
+        items=shopping_list.shopping_map
+    )
 
 if __name__ == "__main__":
-    main()
-
-
-
-
-
-
-
-
+    app.run(debug=True)

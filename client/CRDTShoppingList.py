@@ -1,5 +1,6 @@
 import uuid
-from .pncounter import PNCounter
+from pncounter import PNCounter
+import os
 from secrets import token_urlsafe
 import random
 
@@ -72,10 +73,8 @@ class ShoppingList:
         }
         return shopping_list_info
 
-    # add_item but with concrete values from acquired and timestamp
     def fill_with_item(self, item_id, item):
         # Add item to the shopping map
-        # item_id = str(uuid.uuid4()) 
         quantity_counter = PNCounter(self.replica_id, item_id)
         acquired_counter = PNCounter(self.replica_id, item_id)
         quantity_counter.add_new_node(item_id)
@@ -119,7 +118,7 @@ class ShoppingList:
             "name": item["name"],
             "quantity": quantity_counter.query(),
             "acquired": acquired_counter.query(),
-            "timestamp": timestamp  # ver este timestamp
+            "timestamp": timestamp
         }
         return timestamp
 
@@ -155,12 +154,6 @@ class ShoppingList:
             if item["name"] == item_name:
                 return item_id
         return None
-
-    def get_quantity_counter(self, item_id):
-        """
-        Returns the quantity counter of the item with the provided ID.
-        """
-        return self.quantity_counters[item_id]
 
     def increment_quantity(self, item_id):
         """
@@ -208,6 +201,37 @@ class ShoppingList:
                 self.shopping_map[item_id]["acquired"] = acquired_counter.query()
             self.shopping_map[item_id]["timestamp"] = timestamp
             return timestamp
+
+    def fillFromFile(self, file_path):
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as file:
+                data = file.readlines()
+
+                for line in data[:-1]:
+                    item_id, name, quantity, timestamp, acquired = line.strip().split(',')
+                    self.fill_with_item(item_id, {
+                        "name": name,
+                        "quantity": int(quantity),
+                        "timestamp": int(timestamp),
+                        "acquired": acquired == "True"
+                    })
+
+    def localSave(self):
+        folder_path = os.path.join("userdata", str(self.replica_id))
+        file_path = os.path.join(folder_path, f"{self.id}.txt")
+        os.makedirs(folder_path, exist_ok=True)
+
+        with open(file_path, 'w') as file:
+            for item_id, item in self.shopping_map.items():
+                file.write(f"{item_id},{item['name']},{item['quantity']},{item['timestamp']},{item['acquired']}\n")
+
+        print(f"Saved list to {file_path}")
+
+    def show_list(self):
+        print("\nShopping List:")
+        for item_id, item in self.shopping_map.items():
+            status = "Acquired" if item["acquired"] else "Not Acquired"
+            print(f"- {item['name']} (x{item['quantity']}) | {status}")
 
     def merge(self, replica):
         # Extract item names from the current instance and the replica
