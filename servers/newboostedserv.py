@@ -39,12 +39,17 @@ def run_server(port):
 
     def handle_message(message_parts, load_socket, server_socket ):
         if message_parts[-1] == b'MIGRATEDATA':
-            key = message_parts[-3].decode()
-            print(f"need to migrate data {key}")
-            target = message_parts[-5].decode()
+            key = message_parts[-5].decode()
+            print(f"{port} need to migrate data {key}")
+            target = message_parts[-7].decode()
             target = int(target) + 1000
             target = str(target).encode()
-            server_socket.send_multipart([target, b'', key.encode(), b'MIGRATEDATA'])
+            replicas = message_parts[-3]
+            server_socket.send_multipart([target, b'', key.encode(),b'',replicas,b'', b'MIGRATEDATA'])
+        
+        elif message_parts[-1] == b'DELETE':
+            key = message_parts[-3].decode()
+            print(f"{port} deleted key {key}")
 
     
         elif message_parts[-1] == b'HINT':
@@ -71,7 +76,12 @@ def run_server(port):
         if message_parts[-1] == b'REPLICA':
             print(f"Server {port} received replica")
         elif message_parts[-1] == b'MIGRATEDATA':
-            print("hello")
+            print("received migration opf data")
+            key = message_parts[-5].decode()
+            replica_ports = message_parts[-3].decode().split(",")
+            print(f"replica_ports: {replica_ports}")
+            replica_ports = [int(x) for x in replica_ports]
+            replicate_to_servers(key,replica_ports)
         elif message_parts[-1] == b'HINT':
             print(message_parts)
             sender = message_parts[-4]

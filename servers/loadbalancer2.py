@@ -109,8 +109,15 @@ def server_manager():
                     if ring.get_node(key) == new_port:
                         print(key)
                         print(key_map[key])
-                        source_server =  key_map[key]
-                        backend.send_multipart([str(source_server).encode(), b'', str(new_port).encode(), b'', key.encode(),b'', b'MIGRATEDATA'])
+                        source_server =  key_map[key][0]
+                        source_server_replicas = key_map[key][1:]
+                        new_port_preference_list= ring.get_preference_list(key)
+                        new_port_replicas = ",".join(map(str,new_port_preference_list[1:])) 
+                        key_map[key] = new_port_preference_list
+                        backend.send_multipart([str(source_server).encode(), b'', str(new_port).encode(), b'', key.encode(),b'',new_port_replicas.encode(),b'', b'MIGRATEDATA'])
+                        for replica in source_server_replicas:
+                            backend.send_multipart([str(replica).encode(),b'',key.encode(),b'',b'DELETE'])
+                        # add replicas in keymap add new port replica above and add delete data
 
 
             else:
@@ -157,7 +164,7 @@ def load_balancer():
                 preference_list = ring.get_preference_list(list_id)
                 target_server = preference_list[0]
                 replicas = ",".join(map(str,preference_list[1:])) 
-                key_map[list_id] = target_server
+                key_map[list_id] = preference_list
                 if target_server in active_servers:
                     print(f"Transfert vers serveur actif {target_server}")
                     backend.send_multipart([str(target_server).encode(), b'', client_id, b'', replicas.encode(),b'', client_message])
