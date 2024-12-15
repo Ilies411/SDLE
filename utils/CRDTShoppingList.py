@@ -337,6 +337,8 @@ class ShoppingList:
         for item_id in replica.quantity_counters:
             if item_id not in self.quantity_counters:
                 self.quantity_counters[item_id] = PNCounter(replica.replica_id, item_id)
+                self.quantity_counters[item_id].add_new_node(item_id)
+                self.quantity_counters[item_id].inc(item_id, self.shopping_map[item_id]["quantity"])
             self.quantity_counters[item_id].merge(replica.quantity_counters[item_id])
             self.shopping_map[item_id]["quantity"] = self.quantity_counters[item_id].query()
             # Atualiza a quantidade usando o quantity counter

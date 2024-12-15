@@ -92,6 +92,8 @@ def shopping_list(user_id, list_id):
             print(response)
             if response != "":
                 file_path = os.path.join("userdata", str(user_id), f"{list_id}.txt")
+                folder_path = os.path.join("userdata", str(user_id))
+                os.makedirs(folder_path, exist_ok=True)
                 with open(f"{file_path}",'w') as g:
                     g.write(response)
                 shopping_list = ShoppingList()
