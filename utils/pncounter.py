@@ -1,8 +1,5 @@
-<<<<<<<< HEAD:crdt/pncounter.py
-from crdt.gcounter import GCounter
-========
 from utils.gcounter import GCounter
->>>>>>>> 6caae548f98c7924aceef6ca5fec02b22c3d36de:utils/pncounter.py
+
 
 class PNCounter:
     def __init__(self, replica_id, item_id):
