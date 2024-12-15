@@ -7,7 +7,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from flask import Flask, request, redirect, url_for, render_template, jsonify
 import os
 import uuid
-from crdt.CRDTShoppingList import *
+from utils.CRDTShoppingList import *
 import zmq
 
 app = Flask(__name__)

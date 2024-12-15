@@ -6,7 +6,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import zmq
 import threading
-from crdt.CRDTShoppingList import *
+from utils.CRDTShoppingList import *
 import time
 import os
 
