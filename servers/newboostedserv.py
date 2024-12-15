@@ -1,6 +1,12 @@
+import sys
+from pathlib import Path
+
+# Adiciona o diretório raiz do projeto ao PYTHONPATH
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 import zmq
 import threading
-from CRDTShoppingList import *
+from crdt.CRDTShoppingList import *
 import time
 import os
 
@@ -169,6 +175,7 @@ def run_server(port):
                     g.write(f"{content.decode()}")
                 clientList = ShoppingList()
                 clientList.fillFromFile(temp_client)
+                clientList.increment_counter()
                 serverList = ShoppingList()
                 serverList.fillFromFile(server_file)
                 serverList.set_replica_id(int(port))

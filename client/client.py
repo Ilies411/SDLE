@@ -1,7 +1,13 @@
+import sys
+from pathlib import Path
+
+# Adiciona o diretório raiz do projeto ao PYTHONPATH
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 from flask import Flask, request, redirect, url_for, render_template, jsonify
 import os
 import uuid
-from CRDTShoppingList import *
+from crdt.CRDTShoppingList import *
 import zmq
 
 app = Flask(__name__)

@@ -1,5 +1,5 @@
 import uuid
-from pncounter import PNCounter
+from crdt.pncounter import PNCounter
 import os
 from secrets import token_urlsafe
 import random
@@ -196,11 +196,12 @@ class ShoppingList:
             timestamp = self.increment_counter()
             acquired_counter = self.acquired_counters[item_id]
             if status:
-                acquired_counter.inc(item_id)
-                self.shopping_map[item_id]["acquired"] = acquired_counter.query()
+                # Apenas atualiza o status para True, sem incrementar a quantidade
+                acquired_counter.inc(item_id)  # Isso pode ser removido se não for necessário
+                self.shopping_map[item_id]["acquired"] = True  # Atualiza para True
             else:
                 acquired_counter.dec(item_id)
-                self.shopping_map[item_id]["acquired"] = acquired_counter.query()
+                self.shopping_map[item_id]["acquired"] = False  # Atualiza para False
             self.shopping_map[item_id]["timestamp"] = timestamp
             return timestamp
 
@@ -214,7 +215,7 @@ class ShoppingList:
                         "name": name,
                         "quantity": int(quantity),
                         "timestamp": int(timestamp),
-                        "acquired": acquired == "True" or acquired == 1
+                        "acquired": acquired == "True" or acquired == '1'
                     })
                 main_parts = data[0].split("_", 2)
                 self.replica_id = int(main_parts[0])
@@ -225,7 +226,7 @@ class ShoppingList:
                 self.v = eval(remaining[:dict_end])
                 print(self.v)
 
-    def localSave(self,type="userdata"):
+    def localSave(self, type="userdata"):
         folder_path = os.path.join(type, str(self.replica_id))
         file_path = os.path.join(folder_path, f"{self.id}.txt")
         os.makedirs(folder_path, exist_ok=True)
@@ -233,7 +234,7 @@ class ShoppingList:
         with open(file_path, 'w') as file:
             file.write(f"{self.replica_id}_{self.id}_{self.v}_\n")
             for item_id, item in self.shopping_map.items():
-                file.write(f"{item_id},{item['name']},{item['quantity']},{item['timestamp']},{item['acquired']}\n")
+                file.write(f"{item_id},{item['name']},{item['quantity']},{item['timestamp']},{str(item['acquired'])}\n")
 
         print(f"Saved list to {file_path}")
 
@@ -244,7 +245,21 @@ class ShoppingList:
             print(f"- {item['name']} (x{item['quantity']}) | {status}")
 
     def merge(self, replica):
-        # Extract item names from the current instance and the replica
+        # Verifica se a lista local está vazia
+        if not self.shopping_map:
+            # Se a lista local estiver vazia, simplesmente copia a lista da réplica
+            self.shopping_map = replica.shopping_map.copy()
+            self.quantity_counters = replica.quantity_counters.copy()
+            self.acquired_counters = replica.acquired_counters.copy()
+            self.v = replica.v.copy()
+            return self
+
+        # Verifica se a lista da réplica está vazia
+        if not replica.shopping_map:
+            # Se a lista da réplica estiver vazia, não faz nada
+            return self
+
+        # Extraindo nomes dos itens da instância atual e da réplica
         self_items_names = {item['name']: item for item in self.shopping_map.values()}
         replica_items_names = {item['name']: item for item in replica.shopping_map.values()}
         local_v = self.v
@@ -264,18 +279,32 @@ class ShoppingList:
                     replica_item = item
             if is_self_defined:
                 # If replica's modification is more recent
-                if replica_v[replica.replica_id] > local_v[self.replica_id]:
-                    # Check for conflicts in acquired status
-                    if replica_item["acquired"] != self_item["acquired"]:
-                        self.shopping_map[self_id]["acquired"] = replica_item["acquired"]
-                        self.shopping_map[self_id]["timestamp"] = replica_item["timestamp"]
-
-                    # Check for conflicts in quantities
-                    if replica_item["quantity"] != self_item["quantity"]:
-                        self.shopping_map[self_id]["quantity"] = int(replica_item["quantity"])
-                        self.shopping_map[self_id]["timestamp"] = replica_item["timestamp"]
-                else:
-                    self.shopping_map[self_id] = replica_item
+                if replica_id in replica_v and self.replica_id in local_v:
+                    if replica_v[replica.replica_id] > local_v[self.replica_id]:
+                        # Check for conflicts in acquired status
+                        if replica_item["acquired"] != self_item["acquired"]:
+                            # Criar cópias separadas para itens adquiridos e não adquiridos
+                            new_item_id = f"{item_name}_acquired"
+                            self.shopping_map[new_item_id] = {
+                                "name": item_name,
+                                "quantity": self_item["quantity"],
+                                "acquired": True,
+                                "timestamp": self_item["timestamp"]
+                            }
+                            new_item_id_not_acquired = f"{item_name}_not_acquired"
+                            self.shopping_map[new_item_id_not_acquired] = {
+                                "name": item_name,
+                                "quantity": replica_item["quantity"],
+                                "acquired": False,
+                                "timestamp": replica_item["timestamp"]
+                            }
+                        # Check for conflicts in quantities
+                        if replica_item["quantity"] != self_item["quantity"]:
+                            # Prioriza a maior quantidade
+                            self.shopping_map[self_id]["quantity"] = max(self_item["quantity"], replica_item["quantity"])
+                            self.shopping_map[self_id]["timestamp"] = max(self_item["timestamp"], replica_item["timestamp"])
+                    else:
+                        self.shopping_map[self_id] = replica_item
             else:
                 self.shopping_map[replica_id] = replica_item
 
@@ -299,6 +328,8 @@ class ShoppingList:
             if item_id not in self.quantity_counters:
                 self.quantity_counters[item_id] = PNCounter(replica.replica_id, item_id)
             self.quantity_counters[item_id].merge(replica.quantity_counters[item_id])
+            self.shopping_map[item_id]["quantity"] = self.quantity_counters[item_id].query()
+            # Atualiza a quantidade usando o quantity counter
 
         for item_id in replica.acquired_counters:
             if item_id not in self.acquired_counters:
