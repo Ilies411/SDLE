@@ -1,7 +1,7 @@
 from flask import Flask, request, redirect, url_for, render_template, jsonify
 import os
 import uuid
-from CRDTShoppingList import *
+from utils.CRDTShoppingList import *
 import zmq
 
 app = Flask(__name__)

@@ -1,5 +1,5 @@
 import uuid
-from pncounter import PNCounter
+from utils.pncounter import PNCounter
 import os
 from secrets import token_urlsafe
 import random

@@ -1,4 +1,4 @@
-from gcounter import GCounter
+from utils.gcounter import GCounter
 
 class PNCounter:
     def __init__(self, replica_id, item_id):

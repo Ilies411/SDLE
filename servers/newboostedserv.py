@@ -1,6 +1,6 @@
 import zmq
 import threading
-from CRDTShoppingList import *
+from utils.CRDTShoppingList import *
 import time
 import os
 
