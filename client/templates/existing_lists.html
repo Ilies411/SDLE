@@ -10,6 +10,11 @@
             <li><a href="/list/{{ user_id }}/{{ list_id }}">{{ list_id }}</a></li>
         {% endfor %}
     </ul>
+    <form method="POST" action="{{ url_for('existing_lists', user_id=user_id) }}">
+    <label for="list_id">Enter List ID:</label>
+    <input type="text" id="list_id" name="list_id" required>
+    <button type="submit">Open List</button>
+</form>
     <a href="/">Back to Home</a>
 </body>
 </html>

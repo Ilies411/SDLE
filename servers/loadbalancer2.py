@@ -159,7 +159,7 @@ def load_balancer():
                 client_id, empty, client_message = frontend.recv_multipart()
                 print(f"Reçu de client : {client_message.decode()}")
 
-                list_id = client_message.decode().split("\n")[0].split(":")[1]
+                list_id = client_message.decode().split("_")[1]
                 print(list_id)
                 preference_list = ring.get_preference_list(list_id)
                 target_server = preference_list[0]

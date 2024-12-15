@@ -7,7 +7,7 @@ def client():
 
     try:
         for i in range(5):
-            message = f"list_id:{i}\ntest" 
+            message = f"51078150-6afa-4879-aba0-2aea822c6945,bananas,3,2,0\n_563" 
             print(f"Client sending: {message}")
             socket.send_string(message)
             response = socket.recv_string()

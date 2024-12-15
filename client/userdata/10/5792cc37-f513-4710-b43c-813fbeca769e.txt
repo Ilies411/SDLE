@@ -1,2 +1,0 @@
-3f5abda8-bd30-442a-997b-775b3f585897,banana,10,9,False
-29e5e659-1895-4d84-aafe-c83393204822,batata,20,17,False

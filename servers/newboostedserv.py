@@ -1,6 +1,8 @@
 import zmq
 import threading
+from CRDTShoppingList import *
 import time
+import os
 
 stop_event = threading.Event()
 
@@ -28,6 +30,15 @@ def run_server(port):
     print(f"InterServer Socket {port+1000} binded.")
     print(f"Hint Socket {port+2000} binded.")
 
+    folder_path = os.path.join("server_data", str(port))
+    file_path = os.path.join(folder_path, "active_list.txt")
+    os.makedirs(folder_path, exist_ok=True)
+
+    if not os.path.exists(file_path):
+        with open(file_path, 'w') as file:
+            print(f"{port} : Created active_list.txt")
+    else:
+        print(f"{port}: Server Data already exists")
     
 
     def replicate_to_servers(response,replica_ports):
@@ -45,10 +56,17 @@ def run_server(port):
             target = int(target) + 1000
             target = str(target).encode()
             replicas = message_parts[-3]
-            server_socket.send_multipart([target, b'', key.encode(),b'',replicas,b'', b'MIGRATEDATA'])
-        
+            file_path = f"server_data/{port}/{key}.txt"
+            with open(file_path,'r') as f:
+                content = f.read()
+            server_socket.send_multipart([target, b'', content.encode(),b'',replicas,b'', b'MIGRATEDATA'])
+            if os.path.exists(file_path):
+                os.remove(file_path)
         elif message_parts[-1] == b'DELETE':
             key = message_parts[-3].decode()
+            file_path = f"server_data/{port}/{key}.txt"
+            if os.path.exists(file_path):
+                os.remove(file_path)
             print(f"{port} deleted key {key}")
 
     
@@ -58,14 +76,44 @@ def run_server(port):
             hints_queue.append(hint_data)
             print(f"Hint added to queue: {hint_data}")
             print(f"queue : {hints_queue}")
-            response = f"Response from server {port}, responsible of the hint"
+            response = message_parts[-5]
             print("sending response")
-            load_socket.send_multipart([message_parts[1], b'', response.encode()])
+            load_socket.send_multipart([message_parts[1], b'', response])
         else:
-            #replicate_to_servers(response) may delete
-            response = f"Response from server {port}"
-            print("sending response")
+            clientlistid = message_parts[-1].decode().split("_",2)[1]
+            with open(f'server_data/{port}/active_list.txt', 'r+') as f:
+                    data = f.readlines()
+                    if f"{clientlistid}\n" not in data:
+                        f.write(f"{clientlistid}\n")
+
+            server_file = f'server_data/{port}/{clientlistid}.txt'
+            if not os.path.exists(server_file):
+                with open(server_file, 'w') as g:
+                    g.write(f"{message_parts[-1].decode()}")
+                serverList = ShoppingList()
+                serverList.fillFromFile(server_file)
+                serverList.set_replica_id(int(port))
+                serverList.increment_counter()
+                serverList.localSave("server_data")
+            else:
+                temp_client = f'server_data/{port}/temp/{clientlistid}.txt'
+                os.makedirs(os.path.dirname(temp_client), exist_ok=True)
+                with open(temp_client, 'w') as g:
+                    g.write(f"{message_parts[-1].decode()}")
+                clientList = ShoppingList()
+                clientList.fillFromFile(temp_client)
+                serverList = ShoppingList()
+                serverList.fillFromFile(server_file)
+                serverList.set_replica_id(int(port))
+                serverList.merge(clientList)
+                serverList.increment_counter()
+                serverList.localSave("server_data")
+            
+            with open(server_file, 'r') as h:
+                response = h.read()
+            
             load_socket.send_multipart([message_parts[1], b'', response.encode()])
+
             replica_ports = message_parts[-3].decode().split(",")
             print(f"replica_ports: {replica_ports}")
             replica_ports = [int(x) for x in replica_ports]
@@ -74,22 +122,65 @@ def run_server(port):
     def handle_server_message(message_parts, socket):
         print("hello")
         if message_parts[-1] == b'REPLICA':
+            clientlistid = message_parts[-2].decode().split("_",2)[1]
+            server_file = f'server_data/{port}/{clientlistid}.txt'
+            with open(server_file, 'w') as g:
+                    g.write(f"{message_parts[-2].decode()}")
             print(f"Server {port} received replica")
         elif message_parts[-1] == b'MIGRATEDATA':
-            print("received migration opf data")
-            key = message_parts[-5].decode()
+            print("received migration of data")
+            content = message_parts[-5].decode()
+            clientlistid = content.split("_",2)[1]
+            server_file = f'server_data/{port}/{clientlistid}.txt'
+            with open(server_file, 'w') as g:
+                    g.write(f"{message_parts[-2].decode()}")
+            with open(f'server_data/{port}/active_list.txt', 'r+') as f:
+                    data = f.readlines()
+                    if f"{clientlistid}\n" not in data:
+                        f.write(f"{clientlistid}\n")
             replica_ports = message_parts[-3].decode().split(",")
             print(f"replica_ports: {replica_ports}")
             replica_ports = [int(x) for x in replica_ports]
-            replicate_to_servers(key,replica_ports)
+            replicate_to_servers(content,replica_ports)
         elif message_parts[-1] == b'HINT':
             print(message_parts)
             sender = message_parts[-4]
-            message = message_parts[-2]
+            content = message_parts[-2]
+
+            clientlistid = content.decode().split("_",2)[1]
+            with open(f'server_data/{port}/active_list.txt', 'r+') as f:
+                    data = f.readlines()
+                    if f"{clientlistid}\n" not in data:
+                        f.write(f"{clientlistid}\n")
+
+            server_file = f'server_data/{port}/{clientlistid}.txt'
+            if not os.path.exists(server_file):
+                with open(server_file, 'w') as g:
+                    g.write(f"{content.decode()}")
+                serverList = ShoppingList()
+                serverList.fillFromFile(server_file)
+                serverList.set_replica_id(int(port))
+                serverList.increment_counter()
+                serverList.localSave("server_data")
+            else:
+                temp_client = f'server_data/{port}/temp/{clientlistid}.txt'
+                os.makedirs(os.path.dirname(temp_client), exist_ok=True)
+                with open(temp_client, 'w') as g:
+                    g.write(f"{content.decode()}")
+                clientList = ShoppingList()
+                clientList.fillFromFile(temp_client)
+                serverList = ShoppingList()
+                serverList.fillFromFile(server_file)
+                serverList.set_replica_id(int(port))
+                serverList.increment_counter() #after merge i think
+                serverList.merge(clientList)
+                serverList.localSave("server_data")
+
             print(f"{port} received its hint now send ack" )
             print(f"sender was {sender.decode()}")
             int_sender = int(sender.decode()) - 1000
-            socket.send_multipart([str(int_sender).encode(), b'', message, b'ACK'])
+            socket.send_multipart([str(int_sender).encode(), b'', content, b'ACK'])
+
         elif message_parts[-1] == b'ACK':
             print("WWWWWWWWWWWWW")
             sender = message_parts[-3].decode()

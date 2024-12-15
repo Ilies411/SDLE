@@ -1,0 +1,9 @@
+33_4_{66: 5, 5560: 38, 33: 19}_
+fb25e3a7-2991-4159-8b7d-089fcb8ad60b,fries,2,2,False
+d23fc61f-1dcf-4a07-9f2f-8b4a8f9a96ae,banana,4,2,False
+351e5897-1584-4fd2-96bc-2b6f793f8a91,apple,5,18,False
+89571d7b-c089-429e-add2-baf6b6645a46,china,5,2,False
+509f496f-2c64-46cf-9ffc-04095878dc52,japan,2,4,False
+c646e7c6-0808-48e0-a526-22b2614642c9,yaourt,2,10,False
+6cced21a-2c5c-46c7-9f79-8af88f02ca77,karantika,3,4,False
+1599be5a-2c4c-452a-afa8-4b8d36d6aa93,orange,7,19,1

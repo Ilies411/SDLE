@@ -1,7 +1,8 @@
 from flask import Flask, request, redirect, url_for, render_template, jsonify
 import os
 import uuid
-from CRDTShoppingList import ShoppingList
+from CRDTShoppingList import *
+import zmq
 
 app = Flask(__name__)
 
@@ -28,8 +29,12 @@ def home():
 
     return render_template("home.html")
 
-@app.route("/existing/<user_id>", methods=["GET"])
+@app.route("/existing/<user_id>", methods=["GET", "POST"])
 def existing_lists(user_id):
+    if request.method == "POST":
+        list_id = request.form.get("list_id")  
+        return redirect(url_for("shopping_list", user_id=user_id, list_id=list_id))
+
     lists = load_existing_lists(user_id)
     return render_template("existing_lists.html", user_id=user_id, lists=lists)
 
@@ -39,7 +44,7 @@ def shopping_list(user_id, list_id):
     if not shopping_list:
         shopping_list = ShoppingList()
         shopping_list.set_id(list_id)
-        shopping_list.set_replica_id(user_id)
+        shopping_list.set_replica_id(int(user_id))
         file_path = os.path.join("userdata", str(user_id), f"{list_id}.txt")
         if os.path.exists(file_path):
             shopping_list.fillFromFile(file_path)
@@ -73,10 +78,27 @@ def shopping_list(user_id, list_id):
             if item_id:
                 shopping_list.update_acquired_status(item_id, True)
         elif action == "synchronize":
-            remote_list = ShoppingList()
+            context = zmq.Context()
+            socket = context.socket(zmq.REQ)
+            socket.connect("tcp://localhost:5051")
+            shopping_list.localSave()
+            file_path = os.path.join("userdata", str(user_id), f"{list_id}.txt")
+            with open(f"{file_path}",'r') as f:
+                message = f.read()
+            socket.send_string(message)
+            response = socket.recv_string()
+            print(response)
+            with open(f"{file_path}",'w') as g:
+                g.write(response)
+            shopping_list = ShoppingList()
+            shopping_list.fillFromFile(file_path)
+            shopping_list.set_replica_id(int(user_id))
+            shopping_lists[(user_id, list_id)] = shopping_list
+            """remote_list = ShoppingList()
             remote_list.set_id(shopping_list.my_id())
             remote_list.set_replica_id(int(user_id) + 1)
-            shopping_list.merge(remote_list)
+            shopping_list.merge(remote_list)"""
+            socket.close()
 
         shopping_list.localSave()
         return jsonify({"status": "success"})
