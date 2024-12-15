@@ -18,9 +18,11 @@ Run loadbalancer:
     runloadbalancer.bat
 
 Run server broker:
+
     runbroker.bat
 
 Run a new server to add it into the ring then (not mandatory just for demo):
+
     run5560.bat
 ### MacOS:
 
@@ -38,9 +40,11 @@ Run loadbalancer:
     runloadbalancer.sh
 
 Run server broker:
+
     runbroker.sh
 
 Run a new server to add it into the ring then (not mandatory just for demo):
+
     run5560.sh
 
 ## Demo Video link:
