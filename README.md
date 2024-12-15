@@ -47,4 +47,3 @@ Run a new server to add it into the ring then (not mandatory just for demo):
 
     run5560.sh
 
-## Demo Video link:
