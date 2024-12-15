@@ -4,6 +4,18 @@ import time
 from bisect import bisect_left
 import os
 import threading
+
+
+"""
+Here we implement a load balancer, based on Dynamo architecture:
+Data is partionned using consistent hashing
+Each server replicate to the servers in its preference list ( which are only physical nodes)
+When a server is dead the load balancer ask to the first server that is not in the preference list to send
+hint requests until the source server recovers
+You can add new servers to the ring (like by example running 5560run.py and adding it to the ring via the command line)
+When a server is added there is some data migration
+A user can send a write(synchronize) or read (get) request"""
+
 class ConsistentHashing:
     def __init__(self, vnodes=3):
         self.vnodes = vnodes
@@ -107,8 +119,8 @@ def server_manager():
                 server_status_modified = True
                 for key in key_map.keys():
                     if ring.get_node(key) == new_port:
-                        print(key)
-                        print(key_map[key])
+                        #print(key)
+                        #print(key_map[key])
                         source_server =  key_map[key][0]
                         source_server_replicas = key_map[key][1:]
                         new_port_preference_list= ring.get_preference_list(key)
@@ -157,21 +169,27 @@ def load_balancer():
             
             if frontend in events:
                 client_id, empty, client_message = frontend.recv_multipart()
-                print(f"Reçu de client : {client_message.decode()}")
-
-                list_id = client_message.decode().split("_")[1]
-                print(list_id)
-                preference_list = ring.get_preference_list(list_id)
-                target_server = preference_list[0]
-                replicas = ",".join(map(str,preference_list[1:])) 
-                key_map[list_id] = preference_list
-                if target_server in active_servers:
-                    print(f"Transfert vers serveur actif {target_server}")
-                    backend.send_multipart([str(target_server).encode(), b'', client_id, b'', replicas.encode(),b'', client_message])
+                print(f"Received from client : {client_message.decode()}")
+                if client_message.decode()[:3]=="get":
+                    list_id = client_message.decode()[3:]
+                    preference_list = ring.get_preference_list(list_id)
+                    print(preference_list)
+                    target_server = preference_list[0]
+                    backend.send_multipart([str(target_server).encode(), b'', client_id, b'', list_id.encode(),b'GET'])
                 else:
-                    hint = ring.get_hint(list_id)
-                    print(f"Serveur {target_server} inactif, transfert vers {hint}")
-                    backend.send_multipart([str(hint).encode(), b'', client_id, b'', client_message,b'',str(target_server).encode(),b'',b'HINT'])
+                    list_id = client_message.decode().split("_")[1]
+                    print(list_id)
+                    preference_list = ring.get_preference_list(list_id)
+                    target_server = preference_list[0]
+                    replicas = ",".join(map(str,preference_list[1:])) 
+                    key_map[list_id] = preference_list
+                    if target_server in active_servers:
+                        print(f"Transfer to active server {target_server}")
+                        backend.send_multipart([str(target_server).encode(), b'', client_id, b'', replicas.encode(),b'', client_message])
+                    else:
+                        hint = ring.get_hint(list_id)
+                        print(f"Server {target_server} is dead, transfer to {hint}")
+                        backend.send_multipart([str(hint).encode(), b'', client_id, b'', client_message,b'',str(target_server).encode(),b'',b'HINT'])
 
             if backend in events:
                 server_address, client_id, empty2, server_response = backend.recv_multipart()
@@ -180,7 +198,7 @@ def load_balancer():
                     last_heartbeat[port] = time.time()
                     #print(f"Heartbeat reçu de {port}")
                 else:
-                    print(f"Réponse pour client {client_id}: {server_response.decode()}")
+                    print(f"Response to {client_id}: {server_response.decode()}")
                     frontend.send_multipart([client_id, b'', server_response])
 
                 
@@ -206,7 +224,7 @@ def load_balancer():
                 server_status_modified = False
 
         except KeyboardInterrupt:
-            print("\nArrêt du load balancer.")
+            print("\nStopping Load Balancer.")
             break
         except Exception as e:
             print(f"Erreur : {e}")
@@ -219,14 +237,7 @@ if __name__ == "__main__":
     load_balancer()
 
 
-"""
-que reste il a faire : 
-    - definir un register push/pull ou autre pour avoir le cpu load
-    - mecanisme de réplique
-    - créer les server datas
-    - clé privé/public pour plus de sécurité
-    - frontentd
-"""
+
 
 
 

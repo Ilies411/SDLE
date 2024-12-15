@@ -12,6 +12,24 @@ import os
 
 stop_event = threading.Event()
 
+"""
+Each server has a folder to save its data,
+Each server has 3 ports :
+One to communicate with load balancer
+One to communicate with other server trough the loadbalancer
+One to send hints to a server if needed
+A server can receive several types of message from the load balancer:
+-Migrate Data when a new server was added in the ring then there is some data migration
+-Delete Data wich is linked to Data Migration when a new server is added some replicas doesn't more need 
+to store the keys
+-Hint : the load balancer can ask a server to send hints to another one because this one died
+-Get request when a user want to read the data
+-Normal request = write request
+Servers can also communicate between them : 
+- Send replicas to a server
+- Send a hint to a server
+- Send an ACK when the hint is received
+- Migrate the data to another server when the load balancer asked it """
 
 def run_server(port):
     hints_queue = []
@@ -78,13 +96,24 @@ def run_server(port):
     
         elif message_parts[-1] == b'HINT':
             hint_data = (message_parts[-5].decode() if isinstance(message_parts[-5], bytes) else message_parts[-5],
-             message_parts[-3].decode() if isinstance(message_parts[-3], bytes) else message_parts[-3])
+            message_parts[-3].decode() if isinstance(message_parts[-3], bytes) else message_parts[-3])
             hints_queue.append(hint_data)
             print(f"Hint added to queue: {hint_data}")
             print(f"queue : {hints_queue}")
             response = message_parts[-5]
             print("sending response")
             load_socket.send_multipart([message_parts[1], b'', response])
+        elif message_parts[-1] == b'GET':
+            clientlistid = message_parts[-2].decode()
+            server_file = f'server_data/{port}/{clientlistid}.txt'
+            if not os.path.exists(server_file):
+                response = ""
+                load_socket.send_multipart([message_parts[1], b'', response.encode()])
+            else:
+                with open(server_file,'r') as f:
+                    response = f.read()
+                print("responsetoget",response)
+                load_socket.send_multipart([message_parts[1], b'', response.encode()])
         else:
             clientlistid = message_parts[-1].decode().split("_",2)[1]
             with open(f'server_data/{port}/active_list.txt', 'r+') as f:
@@ -99,7 +128,8 @@ def run_server(port):
                 serverList = ShoppingList()
                 serverList.fillFromFile(server_file)
                 serverList.set_replica_id(int(port))
-                serverList.increment_counter()
+                if not serverList.v:
+                    serverList.increment_counter()
                 serverList.localSave("server_data")
             else:
                 temp_client = f'server_data/{port}/temp/{clientlistid}.txt'
@@ -179,8 +209,8 @@ def run_server(port):
                 serverList = ShoppingList()
                 serverList.fillFromFile(server_file)
                 serverList.set_replica_id(int(port))
-                serverList.increment_counter() #after merge i think
                 serverList.merge(clientList)
+                serverList.increment_counter() 
                 serverList.localSave("server_data")
 
             print(f"{port} received its hint now send ack" )

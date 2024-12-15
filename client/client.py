@@ -83,6 +83,22 @@ def shopping_list(user_id, list_id):
             item_id = shopping_list.get_item_id_by_name(name)
             if item_id:
                 shopping_list.update_acquired_status(item_id, True)
+        elif action == "get":
+            context = zmq.Context()
+            socket = context.socket(zmq.REQ)
+            socket.connect("tcp://localhost:5051")
+            socket.send_string(f"get{list_id}")
+            response = socket.recv_string()
+            print(response)
+            if response != "":
+                file_path = os.path.join("userdata", str(user_id), f"{list_id}.txt")
+                with open(f"{file_path}",'w') as g:
+                    g.write(response)
+                shopping_list = ShoppingList()
+                shopping_list.fillFromFile(file_path)
+                shopping_list.set_replica_id(int(user_id))
+                shopping_lists[(user_id, list_id)] = shopping_list
+            socket.close()
         elif action == "synchronize":
             context = zmq.Context()
             socket = context.socket(zmq.REQ)

@@ -1,11 +1,12 @@
 import uuid
-from crdt.pncounter import PNCounter
+from utils.pncounter import PNCounter
 import os
 from secrets import token_urlsafe
 import random
 
 class ShoppingList:
     def __init__(self):
+        print("HELLLOED?")
         self.id = 0  # =token_urlsafe(16)
         self.replica_id = 0
         self.v = {}  # vector clock to track the causal ordering of operations
@@ -245,6 +246,9 @@ class ShoppingList:
             print(f"- {item['name']} (x{item['quantity']}) | {status}")
 
     def merge(self, replica):
+        print("[debug]merge")
+        print("d",replica.v)
+        print("d",self.v)
         # Verifica se a lista local está vazia
         if not self.shopping_map:
             # Se a lista local estiver vazia, simplesmente copia a lista da réplica
@@ -255,7 +259,7 @@ class ShoppingList:
             return self
 
         # Verifica se a lista da réplica está vazia
-        if not replica.shopping_map:
+        if not replica.shopping_map and not replica.v:
             # Se a lista da réplica estiver vazia, não faz nada
             return self
 
@@ -314,14 +318,20 @@ class ShoppingList:
                 for item_id, item in replica.shopping_map.items():
                     if item_name == item['name']:
                         self.shopping_map[item_id] = item
+            
+        print("deletion?")
 
         # Mesclar itens da réplica na instância atual
         for item_name in self_items_names:
             if item_name not in replica_items_names:
+                print("HHHHH",item_name)
+                print(replica_v)
+                print(local_v)
                 item_id = self.get_item_id_by_name(item_name)
                 if item_id is not None:
-                    if replica_v[replica.replica_id] > local_v[self.replica_id]:
-                        del self.shopping_map[item_id]
+                    if all(key in replica_v for key in local_v):
+                        if all(key == self.replica_id and (local_v[key] <= replica_v[key] + 1) or key != self.replica_id and replica_v[key] >= local_v[key] for key in local_v):
+                            del self.shopping_map[item_id]
 
         # Mesclar contadores de quantidade e status de aquisição
         for item_id in replica.quantity_counters:
@@ -345,5 +355,5 @@ class ShoppingList:
                 local_v[replica_id] = max(local_v[replica_id], replica_v[replica_id])
             else:
                 local_v[replica_id] = replica_v[replica_id]
-
+        print("ahdu")
         return self

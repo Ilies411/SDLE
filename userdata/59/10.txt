@@ -1,9 +1,0 @@
-59_10_{19: 22, 5559: 32, 59: 12}_
-fd85f1ae-b492-4c1d-82e1-97514de776f6,banana,3,2,False
-3d17412c-222a-47a6-a090-789edf10c59b,apple,3,2,False
-fe1605f3-cc64-48fc-9303-5fb8526bfa5e,fire,6,4,False
-81b60b19-da56-4dbb-8ff2-0d0152c03940,redbull,3,8,False
-089aa53d-39c7-4a7e-bdf9-70946364feed,okaymany,12,14,False
-2d0d348f-ad19-4cdf-adf9-ee895895dc43,vip,3,10,False
-e049948c-ad19-4e4e-a838-7f437b6831bf,hollidays,12,16,False
-1fccfbe4-d327-483b-8820-669fb035ec6e,jd,1,12,False
