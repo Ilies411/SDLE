@@ -1,4 +1,4 @@
-from newboostedserv import * 
+from servers.newboostedserv import * 
 
 if __name__ == "__main__":
     try:

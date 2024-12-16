@@ -6,7 +6,7 @@ import random
 
 class ShoppingList:
     def __init__(self):
-        print("HELLLOED?")
+        print("HELLLO")
         self.id = 0  # =token_urlsafe(16)
         self.replica_id = 0
         self.v = {}  # vector clock to track the causal ordering of operations
@@ -307,6 +307,7 @@ class ShoppingList:
                             # Prioriza a maior quantidade
                             self.shopping_map[self_id]["quantity"] = max(self_item["quantity"], replica_item["quantity"])
                             self.shopping_map[self_id]["timestamp"] = max(self_item["timestamp"], replica_item["timestamp"])
+                            
                     else:
                         self.shopping_map[self_id] = replica_item
             else:
@@ -319,7 +320,7 @@ class ShoppingList:
                     if item_name == item['name']:
                         self.shopping_map[item_id] = item
             
-        print("deletion?")
+        
 
         # Mesclar itens da réplica na instância atual
         for item_name in self_items_names:
@@ -335,13 +336,24 @@ class ShoppingList:
 
         # Mesclar contadores de quantidade e status de aquisição
         for item_id in replica.quantity_counters:
-            if item_id not in self.quantity_counters:
-                self.quantity_counters[item_id] = PNCounter(replica.replica_id, item_id)
-                self.quantity_counters[item_id].add_new_node(item_id)
-                self.quantity_counters[item_id].inc(item_id, self.shopping_map[item_id]["quantity"])
-            self.quantity_counters[item_id].merge(replica.quantity_counters[item_id])
-            self.shopping_map[item_id]["quantity"] = self.quantity_counters[item_id].query()
-            # Atualiza a quantidade usando o quantity counter
+            corresponding_item_id = None
+            for existing_id, item in self.shopping_map.items():
+                if item['name'] == replica.shopping_map[item_id]['name']:
+                    corresponding_item_id = existing_id
+                    break
+            
+            if corresponding_item_id is None:
+                corresponding_item_id = item_id
+
+            if corresponding_item_id not in self.quantity_counters:
+                self.quantity_counters[corresponding_item_id] = PNCounter(replica.replica_id, corresponding_item_id)
+                self.quantity_counters[corresponding_item_id].add_new_node(corresponding_item_id)
+            
+            self.quantity_counters[corresponding_item_id].merge(replica.quantity_counters[item_id])
+            
+            if corresponding_item_id in self.shopping_map:
+                self.shopping_map[corresponding_item_id]["quantity"] = self.quantity_counters[corresponding_item_id].query()
+        # Atualiza a quantidade usando o quantity counter
 
         for item_id in replica.acquired_counters:
             if item_id not in self.acquired_counters:

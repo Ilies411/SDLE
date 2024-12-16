@@ -84,10 +84,18 @@ class GCounter:
             Merging occurs on the basis of the max value from the payloads for each key.
         """
 
-        new_payload = {key: 0 for key in self.payload}
-        for key in self.payload:
-            new_payload[key] = max(self.payload[key], gc2.payload[key])
+        new_payload = self.payload.copy()
+    
+        # Ajouter les clés de gc2 qui ne sont pas dans self
+        for key in gc2.payload:
+            if key not in new_payload:
+                new_payload[key] = 0
+            # Prendre la valeur maximale
+            new_payload[key] = max(new_payload[key], gc2.payload[key])
+        
         self.payload = new_payload
+
+        
 
     def display(self):
         """

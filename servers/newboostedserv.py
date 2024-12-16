@@ -169,7 +169,7 @@ def run_server(port):
             clientlistid = content.split("_",2)[1]
             server_file = f'server_data/{port}/{clientlistid}.txt'
             with open(server_file, 'w') as g:
-                    g.write(f"{message_parts[-2].decode()}")
+                    g.write(f"{message_parts[-5].decode()}")
             with open(f'server_data/{port}/active_list.txt', 'r+') as f:
                     data = f.readlines()
                     if f"{clientlistid}\n" not in data:

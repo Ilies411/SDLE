@@ -1,0 +1,5 @@
+1_4_{1: 18, 5559: 4, 7: 3}_
+59007630-1498-44b1-8ffb-c0dc3e1f0c4e,banana,3,10,False
+f70fe726-4cf6-4520-b8ad-24403874f33d,apple,2,12,False
+4f8618d7-b097-4f1a-8599-1dce44ac7c83,tomatos,5,14,False
+0c3cae36-0889-4f1e-acc8-88f74473da74,fries,1,18,0
