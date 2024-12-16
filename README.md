@@ -60,3 +60,6 @@ Group members:
 2. Ilies Sighar (up202401403@up.pt)
 3. Rodrigo Pinheiro (up202403040@up.pt)
 
+## Demonstration video:
+https://drive.google.com/file/d/1w9i5DmirEMXHd9-LOWj9BxCE4qNqt_6P/view?usp=sharing
+
